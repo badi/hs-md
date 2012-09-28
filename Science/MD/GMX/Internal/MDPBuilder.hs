@@ -1,20 +1,16 @@
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE PackageImports #-}
--- {-# OPTIONS_GHC -Wall #-}
 
-import MDP
+module Science.MD.GMX.Internal.MDPBuilder where
 
-import Debug.Trace
+import Science.MD.GMX.Internal.MDP
+import Science.MD.GMX.Internal.MDPPArser
+
 
 import Control.Applicative ((<$>))
 
 import "mtl" Control.Monad.State
-
-import Data.List
-import Data.Maybe
-
-
 
 
 
@@ -50,4 +46,4 @@ testMDP = do
   entry "ref-t" "300"
 
 
-test = putStrLn =<< toMDP . snd <$> runMDP testMDP
+t = putStrLn =<< toMDP . snd <$> runMDP testMDP
