@@ -1,5 +1,7 @@
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE PackageImports #-}
+{-# LANGUAGE StandaloneDeriving #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 
@@ -14,7 +16,7 @@ import "mtl" Control.Monad.State
 
 import Data.List (intercalate)
 
-import System.FilePath ((</>))
+import System.FilePath
 import System.Directory
 import System.Process
 import System.Exit
@@ -39,6 +41,20 @@ instance Show CmdSpec where
     show (ShellCommand s) = s
     show (RawCommand e args) = e ++ " " ++ intercalate " " args
 
+class GetOutputFiles a where
+    getOutput :: ExeState -> a
+
+
+data Result a where
+    MkResult :: GetOutputFiles a => ExitCode -> Maybe a -> Result a
+
+deriving  instance Show a => Show (Result a)
+
+exitcode :: Result a -> ExitCode
+exitcode (MkResult e _) = e
+
+output :: GetOutputFiles a => Result a -> Maybe a
+output (MkResult _ o) = o
 
 
 data ExeState = MkExeState {
@@ -83,11 +99,15 @@ workarea p = do
                createDirectory p
   exeWorkarea .= p
 
-subWorkarea :: String -> Exe ()
-subWorkarea n = do
+downWorkarea :: String -> Exe ()
+downWorkarea n = do
   wa <- view exeWorkarea <$> get
   let wa' = wa </> n
   workarea wa'
+
+upWorkarea :: Exe ()
+upWorkarea = exeWorkarea %= takeDirectory
+
 
 exe :: String -> Exe ()
 exe n = exeName .= n
@@ -99,13 +119,27 @@ flags :: [Flag] -> Exe ()
 flags f = exeFlags ++= f
 
 
-run :: Exe ExitCode
+run :: GetOutputFiles a => Exe (Result a)
 run = do
   cmd <- toCommand <$> get
   liftIO $ putStrLn $ "Executing command: " ++ show cmd
   (stdinh, stdouth, stderrh, ph) <- liftIO $ createProcess cmd
-  liftIO $ waitForProcess ph
+  ecode <- liftIO $ waitForProcess ph
+  s <- get
+  return $ case ecode of
+             ExitSuccess -> MkResult ecode (Just $ getOutput s)
+             _           -> MkResult ecode Nothing
+  
 
+
+
+-- -------------------------------------------------------------------------------- --
+
+data IdentityResult = IR deriving Show
+
+instance GetOutputFiles IdentityResult where getOutput = const IR
+
+test :: Exe (Result IdentityResult)
 test = do
   workarea "/tmp/sqew_wa"
   exe "echo"

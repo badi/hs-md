@@ -1,3 +1,4 @@
+{-# LANGUAGE PackageImports #-}
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE TypeFamilies #-}
 
@@ -8,6 +9,8 @@ import Science.MD.GMX.Internal.ExecutableBuilder hiding (test, t)
 import Control.Lens
 
 import System.FilePath
+
+import "mtl" Control.Monad.State
 
 
 
@@ -49,12 +52,27 @@ instance ToFlags Vsite where
                      Hydrogens -> "hydrogens"
                      Aromatics -> "aromatics"
 
+data Output = MkOutput {
+      conf  :: FilePath
+    , topol :: FilePath
+    , posre :: FilePath
+    } deriving Show
 
-pdb2gmx :: Exe ()
-pdb2gmx = do
-  subWorkarea "pdb2gmx"
+instance GetOutputFiles Output where
+    getOutput s = MkOutput c t p
+        where [c,t,p] = map (s ^. exeWorkarea </>) ["conf.gro", "topol.top", "posre.itp"]
+
+    
+
+pdb2gmx :: Exe a -> Exe a
+pdb2gmx e = do
+  myState <- get
+  downWorkarea "pdb2gmx"
   exe "pdb2gmx"
   exe "/opt/gromacs/4.5.5-static/bin/pdb2gmx"
+  result <- e
+  put myState
+  return result
 
 
 ff :: ForceField -> Exe ()
@@ -73,14 +91,20 @@ ignh :: Exe ()
 ignh = flag "-ignh"
 
 
+
+-- -------------------------------------------------------------------------------- --
+
+test :: Exe (Result Output)
 test = do
   workarea "/tmp/sqew_wa"
-  pdb2gmx
-  struct "/tmp/test.pdb"
-  ff Amber96
-  water NoWater
-  ignh
-  run
+  pdb2gmx $ do
+         struct "/tmp/test.pdb"
+         ff Amber96
+         water NoWater
+         ignh
+         run
 
-t = runExe test
+t = runExe $ do r <- test
+                liftIO $ print $ exitcode r
+                liftIO $ print $ output r
 
