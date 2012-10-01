@@ -18,8 +18,8 @@ data ForceField = Amber96
                 | Amber03
                   deriving (Eq, Show)
 
-instance ToCommand ForceField where
-    toCommand f = "-ff " ++ f'
+instance ToFlags ForceField where
+    toFlags f = ["-ff", f']
         where f' = case f of
                      Amber96            -> "amber96"
                      Amber99            -> "amber99"
@@ -31,8 +31,8 @@ instance ToCommand ForceField where
 data Water = NoWater | SPC | Tip3p | Tip4p
            deriving (Eq, Show)
 
-instance ToCommand Water where
-    toCommand w = "-water " ++ w'
+instance ToFlags Water where
+    toFlags w = ["-water", w']
         where w' = case w of
                      NoWater -> "none"
                      SPC     -> "spc"
@@ -42,8 +42,8 @@ instance ToCommand Water where
 data Vsite = NoVsite | Hydrogens | Aromatics
            deriving (Eq, Show)
 
-instance ToCommand Vsite where
-    toCommand v = "-vsite " ++ v'
+instance ToFlags Vsite where
+    toFlags v = ["-vsite", v']
         where v' = case v of
                      NoVsite   -> "none"
                      Hydrogens -> "hydrogens"
@@ -54,19 +54,23 @@ pdb2gmx :: Exe ()
 pdb2gmx = do
   subWorkarea "pdb2gmx"
   exe "pdb2gmx"
+  exe "/opt/gromacs/4.5.5-static/bin/pdb2gmx"
 
 
 ff :: ForceField -> Exe ()
-ff = flag . toCommand
+ff = flags . toFlags
 
 water :: Water -> Exe ()
-water = flag . toCommand
+water = flags . toFlags
 
 vsite :: Vsite -> Exe ()
-vsite = flag . toCommand
+vsite = flags . toFlags
 
 struct :: FilePath -> Exe ()
-struct = flag . ("-f " ++)
+struct p = flags ["-f", p]
+
+ignh :: Exe ()
+ignh = flag "-ignh"
 
 
 test = do
@@ -75,6 +79,8 @@ test = do
   struct "/tmp/test.pdb"
   ff Amber96
   water NoWater
+  ignh
   run
 
 t = runExe test
+

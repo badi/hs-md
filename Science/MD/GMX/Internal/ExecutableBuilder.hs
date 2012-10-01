@@ -25,8 +25,19 @@ type Flag = String
 
 class ToCommand a where
     type Command
-    type Command = String
+    type Command = CreateProcess
     toCommand :: a -> Command
+
+class ToFlags a where
+    toFlags :: a -> [Flag]
+
+instance Show CreateProcess where
+    show p = cmd
+        where cmd = show $ cmdspec p
+
+instance Show CmdSpec where
+    show (ShellCommand s) = s
+    show (RawCommand e args) = e ++ " " ++ intercalate " " args
 
 
 
@@ -42,14 +53,15 @@ emptyState :: ExeState
 emptyState = MkExeState "." "<some exe>" []
 
 instance ToCommand ExeState where
-    type Command = String
-    toCommand s = intercalate ";" cmds
-        where cmds = [ "pushd " ++ view exeWorkarea s
-                     , cmd
-                     , "popd" 
-                     ]
-              cmd = view exeName s ++ " " ++ flags
-              flags = unwords $ view exeFlags s
+    toCommand s = c
+        where p = proc (s ^. exeName) (s ^. exeFlags)
+              c = p { cwd = Just $ s ^. exeWorkarea
+                    , env = Nothing
+                    , std_in = Inherit
+                    , std_out = Inherit
+                    , std_err = Inherit
+                    }
+
 
 
 newtype Exe a = MkExe {
@@ -81,14 +93,18 @@ exe :: String -> Exe ()
 exe n = exeName .= n
 
 flag :: Flag -> Exe ()
-flag f = exeFlags ++= [f]
+flag f = flags [f]
+
+flags :: [Flag] -> Exe ()
+flags f = exeFlags ++= f
 
 
 run :: Exe ExitCode
 run = do
   cmd <- toCommand <$> get
-  liftIO $ putStrLn $ "Executing command: " ++ cmd
-  liftIO $ system cmd
+  liftIO $ putStrLn $ "Executing command: " ++ show cmd
+  (stdinh, stdouth, stderrh, ph) <- liftIO $ createProcess cmd
+  liftIO $ waitForProcess ph
 
 test = do
   workarea "/tmp/sqew_wa"
