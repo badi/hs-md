@@ -14,7 +14,7 @@ import "mtl" Control.Monad.State
 
 import Data.List (intercalate)
 
-
+import System.FilePath ((</>))
 import System.Directory
 import System.Process
 import System.Exit
@@ -25,6 +25,7 @@ type Flag = String
 
 class ToCommand a where
     type Command
+    type Command = String
     toCommand :: a -> Command
 
 
@@ -69,6 +70,12 @@ workarea p = do
                liftIO $ putStrLn $ "WARNING: creating directory " ++ p
                createDirectory p
   exeWorkarea .= p
+
+subWorkarea :: String -> Exe ()
+subWorkarea n = do
+  wa <- view exeWorkarea <$> get
+  let wa' = wa </> n
+  workarea wa'
 
 exe :: String -> Exe ()
 exe n = exeName .= n
