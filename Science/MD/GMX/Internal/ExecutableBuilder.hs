@@ -42,7 +42,7 @@ instance Show CmdSpec where
     show (RawCommand e args) = e ++ " " ++ intercalate " " args
 
 class GetOutputFiles a where
-    getOutput :: ExeState -> a
+    getOutput :: CommandState -> a
 
 
 data Result a where
@@ -57,28 +57,36 @@ output :: GetOutputFiles a => Result a -> Maybe a
 output (MkResult _ o) = o
 
 
-data ExeState = MkExeState {
-      _exeWorkarea :: FilePath
-    , _exeName :: String
-    , _exeFlags :: [Flag]
+data CommandState = MkCommandState {
+      _cmdWorkarea :: FilePath
+    , _cmdName :: String
+    , _cmdFlags :: [Flag]
     } deriving Show
 
-makeLenses ''ExeState
+makeLenses ''CommandState
 
-emptyState :: ExeState
-emptyState = MkExeState "." "<some exe>" []
+emptyCommand :: CommandState
+emptyCommand = MkCommandState "." "<some exe>" []
 
-instance ToCommand ExeState where
+instance ToCommand CommandState where
     toCommand s = c
-        where p = proc (s ^. exeName) (s ^. exeFlags)
-              c = p { cwd = Just $ s ^. exeWorkarea
+        where p = proc (s ^. cmdName) (s ^. cmdFlags)
+              c = p { cwd = Just $ s ^. cmdWorkarea
                     , env = Nothing
                     , std_in = Inherit
                     , std_out = Inherit
                     , std_err = Inherit
                     }
 
+data ExeState = MkExeState {
+      _exeCurrentCommand :: CommandState
+    , _exeHistory :: [CommandState]
+    } deriving Show
 
+makeLenses ''ExeState
+
+emptyState :: ExeState
+emptyState = MkExeState emptyCommand []
 
 newtype Exe a = MkExe {
       unExe :: StateT ExeState IO a
@@ -92,11 +100,10 @@ runExe = flip runStateT s0 . unExe
 
 prog :: GetOutputFiles a => Exe (Result a) -> Exe (Result a)
 prog e = do
-  s <- get
   r <- e
-  s' <- get
-  put s
-  -- exeHistory %= (s':)
+  c <- _exeCurrentCommand <$> get
+  exeHistory %= (c:)
+  exeCurrentCommand .= emptyCommand { _cmdWorkarea = c ^. cmdWorkarea }
   return r
 
 
@@ -107,35 +114,37 @@ workarea p = do
   when (not e) $ liftIO $ do
                liftIO $ putStrLn $ "WARNING: creating directory " ++ p
                createDirectory p
-  exeWorkarea .= p
+  exeCurrentCommand . cmdWorkarea .= p
 
 downWorkarea :: String -> Exe ()
 downWorkarea n = do
-  wa <- view exeWorkarea <$> get
+  wa <- view (exeCurrentCommand . cmdWorkarea) <$> get
   let wa' = wa </> n
   workarea wa'
 
 upWorkarea :: Exe ()
-upWorkarea = exeWorkarea %= takeDirectory
+upWorkarea = (exeCurrentCommand . cmdWorkarea) %= takeDirectory
 
+cwd :: Exe FilePath
+cwd = liftIO getCurrentDirectory
 
 exe :: String -> Exe ()
-exe n = exeName .= n
+exe n = (exeCurrentCommand . cmdName) .= n
+
+flags :: [Flag] -> Exe ()
+flags f = (exeCurrentCommand . cmdFlags) ++= f
 
 flag :: Flag -> Exe ()
 flag f = flags [f]
 
-flags :: [Flag] -> Exe ()
-flags f = exeFlags ++= f
-
 
 run :: GetOutputFiles a => Exe (Result a)
 run = do
-  cmd <- toCommand <$> get
+  cmd <- toCommand . view exeCurrentCommand <$> get
   liftIO $ putStrLn $ "Executing command: " ++ show cmd
   (stdinh, stdouth, stderrh, ph) <- liftIO $ createProcess cmd
   ecode <- liftIO $ waitForProcess ph
-  s <- get
+  s <- view exeCurrentCommand <$> get
   return $ case ecode of
              ExitSuccess -> MkResult ecode (Just $ getOutput s)
              _           -> MkResult ecode Nothing
@@ -150,7 +159,7 @@ data IdentityResult = IR deriving Show
 instance GetOutputFiles IdentityResult where getOutput = const IR
 
 test :: Exe (Result IdentityResult)
-test = do
+test = prog $ do
   workarea "/tmp/sqew_wa"
   exe "echo"
   flag "hello"
