@@ -52,27 +52,23 @@ instance ToFlags Vsite where
                      Hydrogens -> "hydrogens"
                      Aromatics -> "aromatics"
 
-data Output = MkOutput {
+data Pdb2Gmx = MkPdb2Gmx {
       conf  :: FilePath
     , topol :: FilePath
     , posre :: FilePath
     } deriving Show
 
-instance GetOutputFiles Output where
-    getOutput s = MkOutput c t p
+instance GetOutputFiles Pdb2Gmx where
+    getOutput s = MkPdb2Gmx c t p
         where [c,t,p] = map (s ^. exeWorkarea </>) ["conf.gro", "topol.top", "posre.itp"]
 
     
 
-pdb2gmx :: Exe a -> Exe a
+pdb2gmx :: Exe (Result Pdb2Gmx) -> Exe (Result Pdb2Gmx)
 pdb2gmx e = do
-  myState <- get
   downWorkarea "pdb2gmx"
   exe "pdb2gmx"
-  exe "/opt/gromacs/4.5.5-static/bin/pdb2gmx"
-  result <- e
-  put myState
-  return result
+  e
 
 
 ff :: ForceField -> Exe ()
@@ -94,10 +90,10 @@ ignh = flag "-ignh"
 
 -- -------------------------------------------------------------------------------- --
 
-test :: Exe (Result Output)
 test = do
   workarea "/tmp/sqew_wa"
   pdb2gmx $ do
+         exe "/opt/gromacs/4.5.5-static/bin/pdb2gmx"
          struct "/tmp/test.pdb"
          ff Amber96
          water NoWater
