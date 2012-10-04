@@ -90,6 +90,16 @@ runExe = flip runStateT s0 . unExe
     where s0 = emptyState
 
 
+prog :: GetOutputFiles a => Exe (Result a) -> Exe (Result a)
+prog e = do
+  s <- get
+  r <- e
+  s' <- get
+  put s
+  -- exeHistory %= (s':)
+  return r
+
+
 
 workarea :: FilePath -> Exe ()
 workarea p = do
