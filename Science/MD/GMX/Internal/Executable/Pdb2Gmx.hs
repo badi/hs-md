@@ -61,7 +61,7 @@ data Pdb2Gmx = MkPdb2Gmx {
     } deriving Show
 
 instance GetOutputFiles Pdb2Gmx where
-    getOutput s = MkPdb2Gmx c t p
+    getOutput s = return $ MkPdb2Gmx c t p
         where [c,t,p] = map (s ^. cmdWorkarea </>) ["conf.gro", "topol.top", "posre.itp"]
 
     

@@ -26,7 +26,7 @@ data Grompp = MkGrompp {
     } deriving Show
 
 instance GetOutputFiles Grompp where
-    getOutput s = MkGrompp $ s ^. cmdWorkarea </> "topol.tpr"
+    getOutput s = return $ MkGrompp $ s ^. cmdWorkarea </> "topol.tpr"
 
 
 grompp :: Exe (Result Grompp) -> Exe (Result Grompp)

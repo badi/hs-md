@@ -43,7 +43,7 @@ instance Show CmdSpec where
     show (RawCommand e args) = e ++ " " ++ intercalate " " args
 
 class GetOutputFiles a where
-    getOutput :: CommandState -> a
+    getOutput :: CommandState -> IO a
 
 
 data Result a where
@@ -149,9 +149,11 @@ run = do
   (stdinh, stdouth, stderrh, ph) <- liftIO $ createProcess cmd
   ecode <- liftIO $ waitForProcess ph
   s <- view exeCurrentCommand <$> get
-  return $ case ecode of
-             ExitSuccess -> MkResult ecode (Just $ getOutput s)
-             _           -> MkResult ecode Nothing
+  case ecode of
+    ExitSuccess -> do
+               o <- liftIO $ getOutput s
+               return $ MkResult ecode (Just o)
+    _           -> return $ MkResult ecode Nothing
   
 
 
@@ -160,7 +162,7 @@ run = do
 
 data IdentityResult = IR deriving Show
 
-instance GetOutputFiles IdentityResult where getOutput = const IR
+instance GetOutputFiles IdentityResult where getOutput = return . const IR
 
 test :: Exe (Result IdentityResult)
 test = prog $ do
