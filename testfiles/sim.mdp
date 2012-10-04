@@ -1,0 +1,42 @@
+constraints     =  hbonds
+integrator      =  sd
+dt              =  0.002
+nsteps          =  -1
+nstlist         =  0
+ns_type         =  simple
+rlist           =  0
+coulombtype     =  cut-off
+vdwtype         =  cut-off
+rcoulomb        =  0
+rvdw            =  0
+pbc             =  no
+epsilon_rf      =  0
+comm_mode       =  Angular
+
+nstcomm         = 20
+nstxout         = 500000
+nstfout         = 500000
+nstvout         = 500000
+nstxtcout       = 500000
+nstlog          = 500000
+nstenergy       = 500000
+
+tcoupl          = no
+tc-grps         = system
+tau-t           = 1
+ref-t           = 370
+
+; GBSA
+implicit_solvent        = GBSA
+gb_algorithm            = OBC
+gb_epsilon_solvent      = 78.3
+sa_surface_tension      = 2.25936
+rgbradii                = 0
+
+; GENERATE VELOCITIES FOR STARTUP RUN
+gen_vel                  = yes
+gen_temp                 = 370
+gen_seed                 = -1
+
+ld_seed                  = -1
+
