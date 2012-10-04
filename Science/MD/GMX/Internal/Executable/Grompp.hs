@@ -26,7 +26,7 @@ data Grompp = MkGrompp {
     } deriving Show
 
 instance GetOutputFiles Grompp where
-    getOutput s = MkGrompp $ s ^. exeWorkarea </> "topol.tpr"
+    getOutput s = MkGrompp $ s ^. cmdWorkarea </> "topol.tpr"
 
 
 grompp :: Exe (Result Grompp) -> Exe (Result Grompp)
@@ -38,7 +38,7 @@ grompp e = do
 
 mdp :: MDP a -> Exe ()
 mdp m = do
-  mdpName <- (</> "grompp.mdp") . view exeWorkarea <$> get
+  mdpName <- (</> "grompp.mdp") . view (exeCurrentCommand . cmdWorkarea) <$> get
   cfg <- liftIO $ toMDP . snd <$> runMDP m
   liftIO $ writeFile mdpName cfg
   liftIO $ putStrLn $ "Writing mdp to " ++ mdpName

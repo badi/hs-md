@@ -8,6 +8,8 @@ import Science.MD.GMX.Internal.ExecutableBuilder hiding (test, t)
 
 import Control.Lens
 
+import Control.Applicative ((<$>))
+
 import System.FilePath
 
 import "mtl" Control.Monad.State
@@ -60,7 +62,7 @@ data Pdb2Gmx = MkPdb2Gmx {
 
 instance GetOutputFiles Pdb2Gmx where
     getOutput s = MkPdb2Gmx c t p
-        where [c,t,p] = map (s ^. exeWorkarea </>) ["conf.gro", "topol.top", "posre.itp"]
+        where [c,t,p] = map (s ^. cmdWorkarea </>) ["conf.gro", "topol.top", "posre.itp"]
 
     
 
@@ -94,7 +96,7 @@ test = do
   workarea "/tmp/sqew_wa"
   pdb2gmx $ do
          exe "/opt/gromacs/4.5.5-static/bin/pdb2gmx"
-         struct "/tmp/test.pdb"
+         struct =<< (</> "testfiles/conf.gro") <$> cwd
          ff Amber96
          water NoWater
          ignh
