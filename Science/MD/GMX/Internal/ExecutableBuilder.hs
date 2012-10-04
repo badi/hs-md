@@ -15,6 +15,7 @@ import Data.List.Lens
 import "mtl" Control.Monad.State
 
 import Data.List (intercalate)
+import Data.Maybe
 
 import System.FilePath
 import System.Directory
@@ -59,18 +60,21 @@ output (MkResult _ o) = o
 
 data CommandState = MkCommandState {
       _cmdWorkarea :: FilePath
-    , _cmdName :: String
+    , _cmdName :: Maybe String
     , _cmdFlags :: [Flag]
     } deriving Show
 
 makeLenses ''CommandState
 
 emptyCommand :: CommandState
-emptyCommand = MkCommandState "." "<some exe>" []
+emptyCommand = MkCommandState "." Nothing []
 
 instance ToCommand CommandState where
     toCommand s = c
-        where p = proc (s ^. cmdName) (s ^. cmdFlags)
+        where p = proc n (s ^. cmdFlags)
+              n = maybe (error $ "Executable is not specified in " ++ show s)
+                        id
+                        (s ^. cmdName)
               c = p { cwd = Just $ s ^. cmdWorkarea
                     , env = Nothing
                     , std_in = Inherit
@@ -129,7 +133,7 @@ cwd :: Exe FilePath
 cwd = liftIO getCurrentDirectory
 
 exe :: String -> Exe ()
-exe n = (exeCurrentCommand . cmdName) .= n
+exe n = (exeCurrentCommand . cmdName) .= Just n
 
 flags :: [Flag] -> Exe ()
 flags f = (exeCurrentCommand . cmdFlags) ++= f
